@@ -1,0 +1,26 @@
+
+-- =============================================
+-- 06_RUN_EXPORT_GS.sql
+-- Gera uma nova exportação JSON em TB_GS_EXPORT_LOG
+-- =============================================
+
+PROMPT === Executando PRC_EXPORT_DATASET ==========================
+BEGIN
+  PRC_EXPORT_DATASET;
+END;
+/
+COMMIT;
+
+PROMPT === Últimas 3 exportações (com tamanho do CLOB) ============
+SELECT ID_EXPORT,
+       DT_GERACAO,
+       DBMS_LOB.GETLENGTH(DS_DATASET_JSON) AS TAMANHO_BYTES
+FROM TB_GS_EXPORT_LOG
+ORDER BY ID_EXPORT DESC
+FETCH FIRST 3 ROWS ONLY;
+
+PROMPT === Preview do início do JSON (última exportação) =========
+SELECT DBMS_LOB.SUBSTR(DS_DATASET_JSON, 4000, 1) AS JSON_INICIO
+FROM TB_GS_EXPORT_LOG
+ORDER BY ID_EXPORT DESC
+FETCH FIRST 1 ROW ONLY;
