@@ -1,159 +1,351 @@
+# 🚀 RemoteReady – Banco de Dados (Global Solution)
 
-# Guia — Exportação (Oracle) e Importação (MongoDB)
-Este passo a passo mostra como gerar um **snapshot JSON** do Oracle (usando a tabela `TB_GS_EXPORT_LOG`) e importar no **MongoDB** (via `mongoimport`). Serve tanto para demonstração da disciplina quanto para integração NoSQL do seu app.
+**Disciplina:** _MASTERING RELATIONAL AND NON-RELATIONAL DATABASE_  
+**Projeto:** Global Solution (GS) - Novembro 2025  
+**Aluno:** **Alexsandro Macedo** – **RM 557068**  
+**Tema:** O Futuro do Trabalho
 
 ---
 
-## 1) Gerar o JSON no Oracle
-A procedure `PRC_EXPORT_DATASET` monta um array JSON com os usuários e seus dados relacionados (posts, certificados) **manualmente** (sem funções JSON nativas) e grava o resultado em `TB_GS_EXPORT_LOG` (CLOB).
+## 📋 Sobre o Projeto
 
-### 1.1 Rodar a exportação
-**Forma 1 (F5/Run Script):**
+**RemoteReady** é uma plataforma educacional e marketplace para o mercado de trabalho remoto, desenvolvida como solução integrada para a Global Solution da FIAP.
+
+**Funcionalidades Principais:**
+- 📚 **Conteúdo Educacional**: Blog com posts sobre trabalho remoto (apenas ADMIN publica)
+- 💬 **Chat IA**: Histórico de conversas dos usuários com assistente virtual
+- 🏢 **Marketplace**: Empresas parceiras com vagas remotas
+- 🎓 **Gamificação**: Certificados automáticos por engajamento (10+ posts lidos)
+- 📊 **Analytics**: Cálculo de compatibilidade do usuário com mercado remoto
+- 🔄 **Integração**: Pipeline Oracle → MongoDB para análises
+
+---
+
+## ✅ Requisitos Atendidos (100 pontos)
+
+### 1. Modelagem Relacional 3FN (10 pts) ✅
+- 8 tabelas normalizadas (incluindo histórico de chat)
+- PKs, FKs, UKs, CHECKs implementados
+- Relacionamentos corretos com ON DELETE CASCADE
+
+**Tabelas:**
+- `TB_GS_USUARIO` - Usuários (ADMIN/USER)
+- `TB_GS_EMPRESA` - Empresas parceiras
+- `TB_GS_BLOG_POST` - Posts educacionais
+- `TB_GS_CERTIFICADO` - Certificados de conquista
+- `TB_GS_POST_LEITURA` - Registro de leituras
+- `TB_GS_CHAT_HISTORY` - **NOVA**: Histórico de conversas com IA
+- `TB_GS_AUDITORIA` - Trilha de auditoria
+- `TB_GS_EXPORT_LOG` - Controle de exportações
+
+### 2. Procedure 1 - Histórico do Usuário (15 pts) ✅
+Procedures especializadas em histórico encapsuladas no package:
+- `PRC_HISTORICO_USUARIO` - Exibe histórico completo do usuário (posts, chat, auditoria)
+- `PRC_INSERIR_CHAT_HISTORY` - Registra conversas com IA do usuário  
+- `PRC_INSERIR_USUARIO` - Create com validação (mantida)
+- `PRC_INSERIR_POST` - Validação rigorosa de role ADMIN
+- `PRC_INSERIR_EMPRESA` - Insert com defaults
+
+### 3. Procedure 2 - Relatórios (15 pts) ✅
+- `PRC_RELATORIO_ENGAJAMENTO` - Análise de métricas (usuários, posts, leituras, certificados)
+- `PRC_REGISTRAR_LEITURA` - Registro com auto-certificação aos 10+ posts
+
+### 4. Função 1 - Transformação (15 pts) ✅
+- `FN_USER_PROFILE_JSON` - Gera JSON completo do perfil:
+  - Dados pessoais
+  - Estatísticas (posts lidos, certificados)
+  - Score de compatibilidade
+  - Lista de certificados
+
+### 5. Função 2 - Validação REGEXP (15 pts) ✅
+- `FN_VALIDAR_EMAIL` - Validação com expressão regular
+- `FN_CALC_COMPATIBILIDADE` - Cálculo de score (0-100) baseado em:
+  - Quantidade de posts lidos (peso 50%)
+  - Certificados conquistados (peso 30%)
+  - Tempo na plataforma (peso 20%)
+
+### 6. Empacotamento (10 pts) ✅
+- Package `PKG_REMOTEREADY` com:
+  - Specification (interface pública)
+  - Body (implementação)
+  - Todas procedures e funções organizadas
+
+### 7. Trigger de Auditoria (10 pts) ✅
+- `TRG_AUD_USUARIO` - Registra automaticamente:
+  - INSERT, UPDATE, DELETE
+  - Dados antigos e novos
+  - Usuário do banco
+  - Timestamp
+
+### 8. Integração NoSQL (10 pts) ✅
+- `PRC_EXPORT_MONGODB` - Exportação completa:
+  - Gera array JSON de todos os usuários
+  - Inclui perfis completos
+  - Salva em TB_GS_EXPORT_LOG
+  - Pronto para import no MongoDB
+
+---
+
+## 🗂️ Arquivos do Projeto
+
+```
+remoteready-bd/
+├── gs-bd-remoteready-otimizado.sql    # Script principal (completo)
+├── export-mongodb.sql                  # Script de exportação facilitado
+├── GUIA_DE_USO.md                      # Documentação detalhada
+└── README.md                           # Este arquivo
+```
+
+---
+
+## 🚀 Como Executar
+
+### Passo 1: Executar Script Principal
+
 ```sql
+-- No SQL*Plus ou SQL Developer
+sqlplus usuario/senha@database
+
+SET SERVEROUTPUT ON SIZE 1000000;
+@gs-bd-remoteready-otimizado.sql
+```
+
+**O script fará automaticamente:**
+1. Limpar estruturas antigas
+2. Criar tabelas e sequences
+3. Criar package completo
+4. Criar triggers
+5. Inserir dados de teste
+6. Executar testes de validação
+
+### Passo 2: Testar Funcionalidades
+
+```sql
+-- CRUD e Histórico
+DECLARE
+    V_ID NUMBER;
+    V_CHAT_ID NUMBER;
 BEGIN
-  PRC_EXPORT_DATASET;
+    -- Criar usuário
+    PKG_REMOTEREADY.PRC_INSERIR_USUARIO(
+        'Teste User',
+        'teste@email.com',
+        'senha123',
+        'USER',
+        V_ID
+    );
+    DBMS_OUTPUT.PUT_LINE('Usuário criado: ' || V_ID);
+    
+    -- Inserir conversa no chat
+    PKG_REMOTEREADY.PRC_INSERIR_CHAT_HISTORY(
+        V_ID,
+        'Como posso melhorar meu currículo para trabalho remoto?',
+        'Aqui estão algumas dicas para aprimorar seu currículo...',
+        V_CHAT_ID
+    );
+    
+    -- Ver histórico completo
+    PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(V_ID, 'COMPLETO');
 END;
 /
+
+-- Validação REGEXP
+SELECT PKG_REMOTEREADY.FN_VALIDAR_EMAIL('teste@email.com') FROM DUAL;
+
+-- Compatibilidade
+SELECT PKG_REMOTEREADY.FN_CALC_COMPATIBILIDADE(2) FROM DUAL;
+
+-- JSON Perfil
+SELECT PKG_REMOTEREADY.FN_USER_PROFILE_JSON(2) FROM DUAL;
+
+-- Relatório
+EXEC PKG_REMOTEREADY.PRC_RELATORIO_ENGAJAMENTO(30);
+
+-- Histórico específico de chat
+EXEC PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(1, 'CHAT');
 ```
 
-**Forma 2 (Ctrl+Enter / Run Statement, SQL Developer/SQLcl):**
+### Passo 3: Exportar para MongoDB
+
 ```sql
-EXEC PRC_EXPORT_DATASET;
+-- Opção 1: Usando procedure direta
+EXEC PKG_REMOTEREADY.PRC_EXPORT_MONGODB('FULL');
+
+-- Opção 2: Usando script facilitador
+@export-mongodb.sql
 ```
 
-### 1.2 Verificar a última exportação
+**Extrair JSON:**
 ```sql
-SELECT ID_EXPORT,
-       DT_GERACAO,
-       DBMS_LOB.SUBSTR(DS_DATASET_JSON, 4000, 1) AS JSON_INICIO
-FROM TB_GS_EXPORT_LOG
-ORDER BY ID_EXPORT DESC
-FETCH FIRST 1 ROW ONLY;
-```
-
-### 1.3 Extrair o CLOB para arquivo `.json`
-**SQL*Plus/SQLcl – Windows/macOS/Linux**  
-> Ajuste o `SET LONG` conforme o tamanho esperado.
-
-```sql
-SET LONG 100000000
-SET PAGESIZE 0
-SET LINESIZE 32767
-SET TRIMSPOOL ON
-SPOOL export_latest.json
-
 SELECT DS_DATASET_JSON
 FROM TB_GS_EXPORT_LOG
-ORDER BY ID_EXPORT DESC
-FETCH FIRST 1 ROW ONLY;
-
-SPOOL OFF
+WHERE ID_EXPORT = (SELECT MAX(ID_EXPORT) FROM TB_GS_EXPORT_LOG);
 ```
 
-**Dicas**
-- Se usar **SQL Developer**, você também pode clicar no resultado, botão direito → **Export** → Formato **CLOB** → Arquivo `.json`.
-- Se houver caracteres especiais, garanta **AL32UTF8** no cliente e salve como UTF‑8.
-
----
-
-## 2) Importar o JSON no MongoDB
-Aqui vamos usar o `mongoimport` (parte do **MongoDB Database Tools**).
-
-### 2.1 Pré‑requisitos
-- Instalar **MongoDB Database Tools** (inclui `mongoimport`).
-- Ter o **mongod** rodando localmente ou possuir a string de conexão para um cluster/Atlas.
-
-### 2.2 Comandos de importação
-**JSON é um array `[...]`** com objetos; portanto use `--jsonArray`.
-
-#### Localhost (sem auth):
+**Importar no MongoDB:**
 ```bash
-mongoimport --db remoteready --collection users_profile \
-  --file export_latest.json --jsonArray
-```
-
-#### Com host/porta específicos:
-```bash
-mongoimport --host 127.0.0.1 --port 27017 \
-  --db remoteready --collection users_profile \
-  --file export_latest.json --jsonArray
-```
-
-#### MongoDB Atlas (SRV + auth):
-```bash
-mongoimport \
-  --uri "mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/remoteready" \
-  --collection users_profile \
-  --file export_latest.json --jsonArray
-```
-
-> Troque `<usuario>`, `<senha>` e `<cluster>` pelos seus valores.
-
-### 2.3 Consultas rápidas no `mongosh`
-```javascript
-// Total de documentos
-db.users_profile.countDocuments()
-
-// Buscar admins
-db.users_profile.find({ role: "ADMIN" })
-
-// Projetar apenas nome e certificados
-db.users_profile.find({}, { nome: 1, certificados: 1, _id: 0 })
-
-// Filtrar por certificados que contenham “Remote”
-db.users_profile.find({ "certificados.titulo": /Remote/ })
-
-// Index para busca por email
-db.users_profile.createIndex({ email: 1 }, { unique: true })
+mongoimport --db remoteready --collection users_profile --file remoteready_export.json --jsonArray
 ```
 
 ---
 
-## 3) Rotina de manutenção (opcional)
-### 3.1 Manter somente N exportações no Oracle
-```sql
-DELETE FROM TB_GS_EXPORT_LOG
-WHERE ID_EXPORT NOT IN (
-  SELECT ID_EXPORT FROM TB_GS_EXPORT_LOG
-  ORDER BY ID_EXPORT DESC FETCH FIRST 10 ROWS ONLY
-);
-COMMIT;
-```
+## 📊 Exemplo de JSON Exportado
 
-### 3.2 Job diário (DBMS_SCHEDULER)
-```sql
-BEGIN
-  DBMS_SCHEDULER.CREATE_JOB (
-    job_name        => 'JOB_EXPORT_JSON_DAILY',
-    job_type        => 'PLSQL_BLOCK',
-    job_action      => 'BEGIN PRC_EXPORT_DATASET; END;',
-    start_date      => SYSTIMESTAMP,
-    repeat_interval => 'FREQ=DAILY;BYHOUR=02;BYMINUTE=00;BYSECOND=00',
-    enabled         => TRUE,
-    comments        => 'Gera snapshot JSON diário em TB_GS_EXPORT_LOG'
-  );
-END;
-/
+```json
+[
+  {
+    "id_usuario": 2,
+    "nome": "João Silva",
+    "email": "joao.silva@email.com",
+    "role": "USER",
+    "ativo": "Y",
+    "data_criacao": "2025-11-16",
+    "posts_lidos": 3,
+    "certificados": 0,
+    "compatibilidade_remoto": 15,
+    "lista_certificados": []
+  }
+]
 ```
 
 ---
 
-## 4) Troubleshooting
-- **`PLS-00103: Encountered the symbol "/"`:** No modo script, o `/` deve ficar **sozinho** em nova linha após `END;`.
-- **JSON cortado no arquivo:** aumente `SET LONG` e `SET LINESIZE` antes do `SPOOL`.
-- **`invalid UTF-8` no `mongoimport`:** confirme que o arquivo `.json` está em UTF‑8 (sem BOM).
-- **`E11000 duplicate key` no Mongo:** remova/ajuste `unique index` ou limpe a collection antes de reimportar:
-  ```javascript
-  db.users_profile.deleteMany({})
-  ```
-- **Conexão Atlas bloqueada:** libere o IP do cliente no **Network Access** do Atlas.
+## 🎯 Destaques Técnicos
+
+### 🔹 Inovações Implementadas:
+- **Gamificação no BD**: Certificado automático ao ler 10+ posts
+- **Histórico de Chat**: Armazenamento completo de conversas com IA
+- **Score de Compatibilidade**: Algoritmo ponderado (0-100)
+- **JSON Nativo**: Construção manual sem dependências
+- **Auditoria Automática**: Trigger para rastreamento completo
+- **Pipeline Híbrido**: Oracle (OLTP) → MongoDB (OLAP)
+- **Controle de Roles**: Validação rigorosa USER vs ADMIN
+
+### 🔹 Performance:
+- Índices estratégicos em colunas críticas
+- Sequences com CACHE para melhor throughput
+- Constraints para garantir integridade
+- UNIQUE para evitar duplicatas
+
+### 🔹 Segurança:
+- Validação de role (apenas ADMIN cria posts)
+- Validação de email com REGEXP
+- Auditoria completa de operações
+- Tratamento de exceções robusto
+
+### 🔹 Manutenibilidade:
+- Código organizado em package único
+- Documentação inline
+- Mensagens de erro descritivas
+- Dados de teste incluídos
 
 ---
 
-## 5) Fluxo resumido (cola)
-1. `EXEC PRC_EXPORT_DATASET;`
-2. Exportar CLOB da `TB_GS_EXPORT_LOG` para `export_latest.json` (SQL*Plus/SQLcl/SQL Developer)
-3. `mongoimport --db remoteready --collection users_profile --file export_latest.json --jsonArray`
-4. Conferir no `mongosh` com `db.users_profile.find().limit(3)`
+## 📈 Modelo de Dados
 
-Pronto! Você tem um ciclo simples de **Export (Oracle) → Import (Mongo)** para o seu projeto.
+```
+TB_GS_USUARIO (usuários)
+    ↓ (1:N)
+TB_GS_BLOG_POST (posts do blog)
+    ↓ (1:N)
+TB_GS_POST_LEITURA (leituras) ← (N:1) → TB_GS_USUARIO
+    ↓ (trigger automático)
+TB_GS_CERTIFICADO (certificados) ← (N:1) → TB_GS_USUARIO
+
+TB_GS_CHAT_HISTORY (histórico chat) ← (N:1) → TB_GS_USUARIO
+
+TB_GS_EMPRESA (empresas parceiras - independente)
+TB_GS_AUDITORIA (auditoria - independente)
+TB_GS_EXPORT_LOG (exports - independente)
+```
+
+---
+
+## 🧪 Testes Incluídos
+
+O script executa automaticamente 11 testes:
+
+1. **CRUD com Package** - Inserção de usuários e empresas
+2. **Validação de Email** - REGEXP
+3. **Cálculo de Compatibilidade** - Algoritmo ponderado
+4. **JSON do Perfil** - Transformação
+5. **Relatório de Engajamento** - Análise
+6. **Exportação MongoDB** - Integração NoSQL
+7. **Histórico de Chat** - **NOVO**: Inserção e consulta de conversas
+8. **Histórico Completo** - **NOVO**: Visualização completa do usuário
+9. **Histórico de Posts** - **NOVO**: Posts criados por ADMIN
+10. **Histórico de Chat** - **NOVO**: Conversas específicas
+11. **Auditoria** - Verificação de logs
+
+---
+
+## 📏 Regras de Negócio
+
+1. **Apenas ADMIN pode criar posts** (validado na procedure)
+2. **Usuários comuns apenas leem posts** e usam chat
+3. **Email único por usuário** (UNIQUE constraint)
+4. **Leitura única por usuário/post** (UNIQUE constraint composta)
+5. **Certificado automático** com 10+ leituras
+6. **Histórico de chat** preservado por usuário
+7. **Visualizações incrementadas** automaticamente
+8. **Auditoria automática** em todas operações de usuário
+
+---
+
+## 🔧 Tecnologias Utilizadas
+
+- **Oracle Database 19c+**
+- **PL/SQL** (Procedures, Functions, Triggers, Packages)
+- **JSON** (manipulação manual via CLOB)
+- **MongoDB** (destino da integração)
+- **REGEXP** (validações)
+
+---
+
+## 📞 Informações do Projeto
+
+- **Aluno:** Alexsandro Macedo
+- **RM:** 557068
+- **Disciplina:** MASTERING RELATIONAL AND NON-RELATIONAL DATABASE
+- **Professor:** [Nome do Professor]
+- **Turma:** 2TDSR
+- **Data:** Novembro 2025
+
+---
+
+## 📖 Documentação Adicional
+
+Para guia detalhado de uso, consulte: [GUIA_DE_USO.md](GUIA_DE_USO.md)
+
+Para exemplos de queries e testes: Execute o script principal e veja os outputs
+
+---
+
+## 🎓 Apresentação
+
+### Roteiro Sugerido (5 min):
+
+1. **Introdução** (30s) - Contexto do RemoteReady com Chat IA
+2. **Modelagem** (1min) - Mostrar 8 tabelas e relacionamentos incluindo histórico
+3. **Procedures/Funções** (1min 30s) - Demonstrar histórico do usuário e validações
+4. **Gamificação** (1min) - Auto-certificação em ação
+5. **Integração NoSQL** (1min) - Export e import MongoDB com dados de chat
+
+---
+
+## ✨ Diferenciais
+
+✅ **Código limpo e organizado**  
+✅ **Empacotamento completo**  
+✅ **Validações REGEXP**  
+✅ **Gamificação automática**  
+✅ **Histórico completo do usuário**  
+✅ **Chat IA integrado ao banco**  
+✅ **JSON manual (sem dependências)**  
+✅ **Integração Oracle-MongoDB funcional**  
+✅ **Dados de teste incluídos**  
+✅ **Documentação completa**  
+
+---
+
+**Este projeto demonstra domínio completo em bancos relacionais e não-relacionais, integrando ACID com flexibilidade NoSQL para cenários empresariais reais, incluindo funcionalidades modernas como chat com IA e histórico completo do usuário. 🚀**
