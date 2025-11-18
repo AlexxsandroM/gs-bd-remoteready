@@ -31,11 +31,7 @@ BEGIN
       '"id_usuario":' || TO_CHAR(r.id_usuario) || ',' ||
       '"nm_usuario":' || FN_JSON_ESCAPE(r.nm_usuario) || ',' ||
       '"ds_email":' || FN_JSON_ESCAPE(r.ds_email) || ',' ||
-      '"tp_perfil":' || FN_JSON_ESCAPE(r.tp_perfil) || ',' ||
       '"tp_role":' || FN_JSON_ESCAPE(r.tp_role) || ',' ||
-      '"nr_experiencia":' || FN_JSON_NUMBER(r.nr_experiencia) || ',' ||
-      '"vl_avaliacao":' || FN_JSON_NUMBER(r.vl_avaliacao) || ',' ||
-      '"fl_ativo":' || FN_JSON_ESCAPE(r.fl_ativo) || ',' ||
       '"dt_criacao":' || FN_JSON_DATE(r.dt_criacao) ||
     '}';
     DBMS_OUTPUT.PUT_LINE(v_obj);
@@ -62,10 +58,9 @@ BEGIN
     v_obj := '{' ||
       '"id_empresa":' || TO_CHAR(r.id_empresa) || ',' ||
       '"nm_empresa":' || FN_JSON_ESCAPE(r.nm_empresa) || ',' ||
-      '"ds_setor":' || FN_JSON_ESCAPE(r.ds_setor) || ',' ||
-      '"nr_funcionarios":' || FN_JSON_NUMBER(r.nr_funcionarios) || ',' ||
-      '"fl_ativo":' || FN_JSON_ESCAPE(r.fl_ativo) || ',' ||
-      '"dt_cadastro":' || FN_JSON_DATE(r.dt_cadastro) ||
+      '"ds_area":' || FN_JSON_ESCAPE(r.ds_area) || ',' ||
+      '"fl_hiring_now":' || FN_JSON_ESCAPE(r.fl_hiring_now) || ',' ||
+      '"ds_website":' || FN_JSON_ESCAPE(r.ds_website) ||
     '}';
     DBMS_OUTPUT.PUT_LINE(v_obj);
   END LOOP;

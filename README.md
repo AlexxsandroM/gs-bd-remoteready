@@ -9,15 +9,25 @@
 
 ## 📋 Sobre o Projeto
 
-**RemoteReady** é uma plataforma educacional e marketplace para o mercado de trabalho remoto, desenvolvida como solução integrada para a Global Solution da FIAP.
+**RemoteReady** é uma plataforma educacional e marketplace completo para o mercado de trabalho remoto, desenvolvida como solução integrada para a Global Solution da FIAP.
 
-**Funcionalidades Principais:**
+### 🎯 Arquitetura do Sistema
+
+Este banco de dados Oracle alimenta o ecossistema completo RemoteReady:
+
+- **🗄️ Backend Java** - API REST que consome este banco Oracle
+- **📱 App Mobile** - Aplicativo React Native **RemoteReady** (frontend)
+- **🤖 Chatbot IA** - **RemoteCoach**: Assistente virtual para orientação sobre trabalho remoto
+- **📊 Analytics** - Pipeline MongoDB para análises avançadas de comportamento
+
+### ⚙️ Funcionalidades Principais
+
 - 📚 **Conteúdo Educacional**: Blog com posts sobre trabalho remoto (apenas ADMIN publica)
-- 💬 **Chat IA**: Histórico de conversas dos usuários com assistente virtual
+- 💬 **RemoteCoach (Chat IA)**: Histórico completo de conversas dos usuários com assistente virtual
 - 🏢 **Marketplace**: Empresas parceiras com vagas remotas
 - 🎓 **Gamificação**: Certificados automáticos por engajamento (10+ posts lidos)
-- 📊 **Analytics**: Cálculo de compatibilidade do usuário com mercado remoto
-- 🔄 **Integração**: Pipeline Oracle → MongoDB para análises avançadas
+- 📊 **Analytics**: Cálculo de compatibilidade do usuário com mercado remoto ('Y'/'N')
+- 🔄 **Integração NoSQL**: Pipeline Oracle → MongoDB para análises avançadas
 
 ---
 
@@ -36,51 +46,86 @@
 - `TB_GS_AUDITORIA` - Trilha de auditoria
 - `TB_GS_EXPORT_LOG` - Controle de exportações
 
-### 2. Procedure 1 - Histórico do Usuário 
-Procedures especializadas em histórico encapsuladas no package:
-- `PRC_HISTORICO_USUARIO` - Exibe histórico completo do usuário (posts, chat, auditoria)
-- `PRC_INSERIR_CHAT_HISTORY` - Registra conversas com IA do usuário  
-- `PRC_INSERIR_USUARIO` - Create com validação (mantida)
-- `PRC_INSERIR_POST` - Validação rigorosa de role ADMIN
-- `PRC_INSERIR_EMPRESA` - Insert com defaults
+### 2. Procedure 1 - Histórico do Usuário (15 pontos) 
+**`PRC_HISTORICO_USUARIO`** - Procedure principal completa com 3 modos:
+- **COMPLETO**: Posts lidos + Certificados + Chat RemoteCoach + Auditoria
+- **RESUMO**: Apenas estatísticas agregadas
+- **CHAT**: Histórico isolado de conversas com RemoteCoach
 
-### 3. Procedure 2 - Relatórios 
-- `PRC_RELATORIO_ENGAJAMENTO` - Análise de métricas (usuários, posts, leituras, certificados)
-- `PRC_REGISTRAR_LEITURA` - Registro com auto-certificação aos 10+ posts
+**Procedures auxiliares de histórico:**
+- `PRC_INSERIR_CHAT_HISTORY` - Registra conversas do RemoteCoach
+- `PRC_ATUALIZAR_CHAT_RESPONSE` - Atualiza resposta do chatbot
+- `PRC_BUSCAR_HISTORICO_CHAT` - Recupera conversas específicas
+- `PRC_LIMPAR_HISTORICO_ANTIGO` - Manutenção de dados antigos
 
-### 4. Função 1 - Transformação
-- `FN_USER_PROFILE_JSON` - Gera JSON completo do perfil:
-  - Dados pessoais
-  - Estatísticas (posts lidos, certificados)
-  - Score de compatibilidade
-  - Lista de certificados
+### 3. Procedure 2 - Relatórios e Análises (15 pontos) 
+**`PRC_RELATORIO_ENGAJAMENTO`** - Análise completa do sistema:
+- Total de usuários ativos
+- Posts criados no blog
+- Leituras registradas (TB_GS_USER_POST)
+- Certificados emitidos
+- Top 5 posts mais lidos
 
-### 5. Função 2 - Validação REGEXP
-- `FN_VALIDAR_EMAIL` - Validação com expressão regular
-- `FN_CALC_COMPATIBILIDADE` - Verifica se usuário leu 10+ posts:
-  - Retorna 'Y' se preparado para trabalho remoto (10+ posts lidos)
-  - Retorna 'N' caso contrário
-  - Critério simples e direto baseado em engajamento
+**`PRC_REGISTRAR_LEITURA`** - Lógica de negócio inteligente:
+- Registro idempotente (não duplica leituras)
+- Auto-certificação automática aos 10+ posts lidos com status 'LIDO'
+- Incremento de visualizações no post
+- Validação de status
 
-### 6. Empacotamento 
-- Package `PKG_REMOTEREADY` com:
-  - Specification (interface pública)
-  - Body (implementação)
-  - Todas procedures e funções organizadas
+### 4. Função 1 - Transformação de Dados (15 pontos) 
+**`FN_USER_PROFILE_JSON`** - Gera JSON completo do perfil do usuário:
+- Dados pessoais (nome, email, role)
+- Estatísticas de engajamento (posts lidos, certificados conquistados)
+- Score de compatibilidade (Y/N)
+- Lista detalhada de certificados
+- Formato: JSON válido para integração com backend Java e app React Native
 
-### 7. Trigger de Auditoria 
-- `TRG_AUD_USUARIO` - Registra automaticamente:
-  - INSERT, UPDATE, DELETE
-  - Dados antigos e novos
-  - Usuário do banco
-  - Timestamp
+### 5. Função 2 - Validação com REGEXP (15 pontos) 
+**`FN_VALIDAR_EMAIL`** - Validação rigorosa com expressão regular:
+- Padrão: `^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`
+- Retorna: 'VALIDO' ou 'INVALIDO'
+- Usado na criação de usuários
 
-### 8. Integração NoSQL 
-- `PRC_EXPORT_MONGODB` - Exportação completa:
-  - Gera array JSON de todos os usuários
-  - Inclui perfis completos
-  - Salva em TB_GS_EXPORT_LOG
-  - Pronto para import no MongoDB
+**`FN_CALC_COMPATIBILIDADE`** - Verifica prontidão para trabalho remoto:
+- Analisa TB_GS_USER_POST onde DS_STATUS = 'LIDO'
+- Retorna 'Y' se usuário leu 10+ posts (preparado)
+- Retorna 'N' caso contrário
+- Critério simples baseado em engajamento com conteúdo educacional
+
+### 6. Package PL/SQL (15 pontos) 
+**`PKG_REMOTEREADY`** - Encapsulamento completo:
+- **Specification**: Interface pública com 9 procedures e 3 functions
+- **Body**: Implementação detalhada com tratamento de erros
+- **Organização**: Todas procedures e funções agrupadas logicamente
+- **Procedures**: Histórico (5) + Relatórios (2) + Negócio (2)
+- **Functions**: Transformação JSON (1) + Validações (2)
+
+### 7. Trigger de Auditoria (10 pontos) 
+**`TRG_AUD_USUARIO`** - Auditoria automática completa:
+- **Eventos**: INSERT, UPDATE, DELETE em TB_GS_USUARIO
+- **Dados capturados**: Valores antigos (OLD) e novos (NEW)
+- **Rastreamento**: Usuário do banco (USER) e timestamp (SYSTIMESTAMP)
+- **Armazenamento**: TB_GS_AUDITORIA para trilha de auditoria
+- **Uso**: Segurança e compliance do sistema
+
+### 8. Integração NoSQL - MongoDB (10 pontos) 
+**Pipeline completo Oracle → MongoDB:**
+
+**Script de Exportação** (`export_remoteready_json.sql`):
+- Gera 6 arquivos JSON separados (usuarios, empresas, blog_posts, certificados, user_posts, chat_history)
+- Formato JSON Array compatível com `mongoimport`
+- Funções auxiliares: `FN_JSON_ESCAPE`, `FN_JSON_NUMBER`, `FN_JSON_DATE`
+- Execução via SPOOL (SQL*Plus/SQLcl)
+
+**Scripts de Importação:**
+- `import_data.ps1` (PowerShell - automação Windows)
+- `import_mongo.bat` (Batch - linha de comando Windows)
+- Comandos manuais `mongoimport` para qualquer plataforma
+
+**Uso no Sistema:**
+- Backend Java consulta MongoDB para análises rápidas
+- Agregações complexas de comportamento de usuários
+- Cache de dados para app React Native
 
 ---
 

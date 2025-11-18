@@ -375,33 +375,6 @@ CREATE OR REPLACE PACKAGE PKG_REMOTEREADY AS
         P_ID_USUARIO IN NUMBER,
         P_DIAS_ANTES IN NUMBER DEFAULT 365
     );
-    -- ========================================================================
-    -- PROCEDURES AUXILIARES (para funcionamento do sistema)
-    -- ========================================================================
-    
-    PROCEDURE PRC_INSERIR_POST(
-        P_TITULO    IN VARCHAR2,
-        P_DESCRICAO IN VARCHAR2,
-        P_TAG       IN VARCHAR2,
-        P_ID_CRIADOR IN NUMBER,
-        P_ID_OUT    OUT NUMBER
-    );
-    
-    PROCEDURE PRC_INSERIR_USUARIO(
-        P_NOME      IN VARCHAR2,
-        P_EMAIL     IN VARCHAR2,
-        P_PASSWORD  IN VARCHAR2,
-        P_ROLE      IN VARCHAR2 DEFAULT 'USER',
-        P_ID_OUT    OUT NUMBER
-    );
-    
-    PROCEDURE PRC_INSERIR_EMPRESA(
-        P_NOME      IN VARCHAR2,
-        P_AREA      IN VARCHAR2,
-        P_HIRING    IN CHAR DEFAULT 'N',
-        P_WEBSITE   IN VARCHAR2 DEFAULT NULL,
-        P_ID_OUT    OUT NUMBER
-    );
     
     -- ========================================================================
     -- PROCEDURE 2: RELATÓRIOS E ANÁLISES (Requisito: 15 pontos)
@@ -675,110 +648,6 @@ CREATE OR REPLACE PACKAGE BODY PKG_REMOTEREADY AS
             ROLLBACK;
             RAISE_APPLICATION_ERROR(-20028, 'Erro ao limpar histórico: ' || SQLERRM);
     END PRC_LIMPAR_HISTORICO_ANTIGO;
-    
-    -- ========================================================================
-    -- PROCEDURE 1.3: INSERIR USUÁRIO (MANTIDA PARA TESTES)
-    -- ========================================================================
-    PROCEDURE PRC_INSERIR_USUARIO(
-        P_NOME      IN VARCHAR2,
-        P_EMAIL     IN VARCHAR2,
-        P_PASSWORD  IN VARCHAR2,
-        P_ROLE      IN VARCHAR2 DEFAULT 'USER',
-        P_ID_OUT    OUT NUMBER
-    ) AS
-        V_EMAIL_VALIDO VARCHAR2(10);
-    BEGIN
-        -- Validar email com REGEXP
-        V_EMAIL_VALIDO := FN_VALIDAR_EMAIL(P_EMAIL);
-        
-        IF V_EMAIL_VALIDO = 'INVALIDO' THEN
-            RAISE_APPLICATION_ERROR(-20001, 'Email inválido: ' || P_EMAIL);
-        END IF;
-        
-        -- Inserir usuário
-        INSERT INTO TB_GS_USUARIO (
-            ID_USUARIO, NM_USUARIO, DS_EMAIL, DS_PASSWORD, TP_ROLE
-        ) VALUES (
-            SEQ_TB_GS_USUARIO.NEXTVAL, P_NOME, P_EMAIL, P_PASSWORD, P_ROLE
-        ) RETURNING ID_USUARIO INTO P_ID_OUT;
-        
-        COMMIT;
-        DBMS_OUTPUT.PUT_LINE('Usuário criado: ID=' || P_ID_OUT || ' Email=' || P_EMAIL);
-        
-    EXCEPTION
-        WHEN DUP_VAL_ON_INDEX THEN
-            RAISE_APPLICATION_ERROR(-20002, 'Email já cadastrado: ' || P_EMAIL);
-        WHEN OTHERS THEN
-            ROLLBACK;
-            RAISE_APPLICATION_ERROR(-20003, 'Erro ao inserir usuário: ' || SQLERRM);
-    END PRC_INSERIR_USUARIO;
-    
-    -- ========================================================================
-    -- PROCEDURE 1.2: INSERIR HISTÓRICO DE CHAT
-    -- ========================================================================
-    -- PROCEDURE 1.3: INSERIR POST (COM VALIDAÇÃO DE ADMIN)
-    -- ========================================================================
-    PROCEDURE PRC_INSERIR_POST(
-        P_TITULO    IN VARCHAR2,
-        P_DESCRICAO IN VARCHAR2,
-        P_TAG       IN VARCHAR2,
-        P_ID_CRIADOR IN NUMBER,
-        P_ID_OUT    OUT NUMBER
-    ) AS
-        V_ROLE VARCHAR2(20);
-    BEGIN
-        -- Verificar se criador é ADMIN
-        SELECT TP_ROLE INTO V_ROLE
-        FROM TB_GS_USUARIO
-        WHERE ID_USUARIO = P_ID_CRIADOR;
-        
-        IF V_ROLE != 'ADMIN' THEN
-            RAISE_APPLICATION_ERROR(-20009, 'Apenas ADMIN pode criar posts');
-        END IF;
-        
-        -- Inserir post
-        INSERT INTO TB_GS_BLOG_POST (
-            ID_POST, DS_TITULO, DS_DESCRICAO, DS_TAG, ID_USUARIO_CRIADOR
-        ) VALUES (
-            SEQ_TB_GS_POST.NEXTVAL, P_TITULO, P_DESCRICAO, P_TAG, P_ID_CRIADOR
-        ) RETURNING ID_POST INTO P_ID_OUT;
-        
-        COMMIT;
-        DBMS_OUTPUT.PUT_LINE('Post criado: ID=' || P_ID_OUT);
-        
-    EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-            RAISE_APPLICATION_ERROR(-20010, 'Usuário criador não encontrado');
-        WHEN OTHERS THEN
-            ROLLBACK;
-            RAISE_APPLICATION_ERROR(-20011, 'Erro ao criar post: ' || SQLERRM);
-    END PRC_INSERIR_POST;
-    
-    -- ========================================================================
-    -- PROCEDURE 1.5: INSERIR EMPRESA (CRUD)
-    -- ========================================================================
-    PROCEDURE PRC_INSERIR_EMPRESA(
-        P_NOME      IN VARCHAR2,
-        P_AREA      IN VARCHAR2,
-        P_HIRING    IN CHAR DEFAULT 'N',
-        P_WEBSITE   IN VARCHAR2 DEFAULT NULL,
-        P_ID_OUT    OUT NUMBER
-    ) AS
-    BEGIN
-        INSERT INTO TB_GS_EMPRESA (
-            ID_EMPRESA, NM_EMPRESA, DS_AREA, FL_HIRING_NOW, DS_WEBSITE
-        ) VALUES (
-            SEQ_TB_GS_EMPRESA.NEXTVAL, P_NOME, P_AREA, P_HIRING, P_WEBSITE
-        ) RETURNING ID_EMPRESA INTO P_ID_OUT;
-        
-        COMMIT;
-        DBMS_OUTPUT.PUT_LINE('Empresa criada: ID=' || P_ID_OUT);
-        
-    EXCEPTION
-        WHEN OTHERS THEN
-            ROLLBACK;
-            RAISE_APPLICATION_ERROR(-20012, 'Erro ao criar empresa: ' || SQLERRM);
-    END PRC_INSERIR_EMPRESA;
     
     -- ========================================================================
     -- PROCEDURE 2.1: RELATÓRIO DE ENGAJAMENTO (Análise)
@@ -1483,75 +1352,46 @@ DECLARE
     V_ID_POST1 NUMBER;
     V_ID_POST2 NUMBER;
     V_ID_POST3 NUMBER;
-    V_ID_EMP1 NUMBER;
 BEGIN
     -- Criar usuário ADMIN
-    PKG_REMOTEREADY.PRC_INSERIR_USUARIO(
-        'Admin RemoteReady',
-        'admin@remoteready.com',
-        'admin123',
-        'ADMIN',
-        V_ID_ADMIN
-    );
+    INSERT INTO TB_GS_USUARIO (ID_USUARIO, NM_USUARIO, DS_EMAIL, DS_PASSWORD, TP_ROLE)
+    VALUES (SEQ_TB_GS_USUARIO.NEXTVAL, 'Admin RemoteReady', 'admin@remoteready.com', 'admin123', 'ADMIN')
+    RETURNING ID_USUARIO INTO V_ID_ADMIN;
     
     -- Criar usuários USER
-    PKG_REMOTEREADY.PRC_INSERIR_USUARIO(
-        'João Silva',
-        'joao.silva@email.com',
-        'senha123',
-        'USER',
-        V_ID_USER1
-    );
+    INSERT INTO TB_GS_USUARIO (ID_USUARIO, NM_USUARIO, DS_EMAIL, DS_PASSWORD, TP_ROLE)
+    VALUES (SEQ_TB_GS_USUARIO.NEXTVAL, 'João Silva', 'joao.silva@email.com', 'senha123', 'USER')
+    RETURNING ID_USUARIO INTO V_ID_USER1;
     
-    PKG_REMOTEREADY.PRC_INSERIR_USUARIO(
-        'Maria Santos',
-        'maria.santos@email.com',
-        'senha456',
-        'USER',
-        V_ID_USER2
-    );
+    INSERT INTO TB_GS_USUARIO (ID_USUARIO, NM_USUARIO, DS_EMAIL, DS_PASSWORD, TP_ROLE)
+    VALUES (SEQ_TB_GS_USUARIO.NEXTVAL, 'Maria Santos', 'maria.santos@email.com', 'senha456', 'USER')
+    RETURNING ID_USUARIO INTO V_ID_USER2;
     
     -- Criar empresas
-    PKG_REMOTEREADY.PRC_INSERIR_EMPRESA(
-        'TechCorp Brasil',
-        'Tecnologia',
-        'Y',
-        'https://techcorp.com.br',
-        V_ID_EMP1
-    );
+    INSERT INTO TB_GS_EMPRESA (ID_EMPRESA, NM_EMPRESA, DS_AREA, FL_HIRING_NOW, DS_WEBSITE)
+    VALUES (SEQ_TB_GS_EMPRESA.NEXTVAL, 'TechCorp Brasil', 'Tecnologia', 'Y', 'https://techcorp.com.br');
     
-    PKG_REMOTEREADY.PRC_INSERIR_EMPRESA(
-        'Remote Solutions',
-        'Consultoria',
-        'N',
-        'https://remotesolutions.io',
-        V_ID_EMP1
-    );
+    INSERT INTO TB_GS_EMPRESA (ID_EMPRESA, NM_EMPRESA, DS_AREA, FL_HIRING_NOW, DS_WEBSITE)
+    VALUES (SEQ_TB_GS_EMPRESA.NEXTVAL, 'Remote Solutions', 'Consultoria', 'N', 'https://remotesolutions.io');
     
     -- Criar posts (apenas ADMIN)
-    PKG_REMOTEREADY.PRC_INSERIR_POST(
-        'Como iniciar no trabalho remoto',
-        'Guia completo para quem está começando a trabalhar remotamente. Dicas essenciais sobre comunicação, produtividade e gestão de tempo.',
-        'iniciante',
-        V_ID_ADMIN,
-        V_ID_POST1
-    );
+    INSERT INTO TB_GS_BLOG_POST (ID_POST, DS_TITULO, DS_DESCRICAO, DS_TAG, ID_USUARIO_CRIADOR)
+    VALUES (SEQ_TB_GS_POST.NEXTVAL, 'Como iniciar no trabalho remoto', 
+            'Guia completo para quem está começando a trabalhar remotamente. Dicas essenciais sobre comunicação, produtividade e gestão de tempo.',
+            'iniciante', V_ID_ADMIN)
+    RETURNING ID_POST INTO V_ID_POST1;
     
-    PKG_REMOTEREADY.PRC_INSERIR_POST(
-        'Ferramentas essenciais para trabalho remoto',
-        'Conheça as principais ferramentas para comunicação, gestão de projetos e colaboração em equipes remotas.',
-        'ferramentas',
-        V_ID_ADMIN,
-        V_ID_POST2
-    );
+    INSERT INTO TB_GS_BLOG_POST (ID_POST, DS_TITULO, DS_DESCRICAO, DS_TAG, ID_USUARIO_CRIADOR)
+    VALUES (SEQ_TB_GS_POST.NEXTVAL, 'Ferramentas essenciais para trabalho remoto',
+            'Conheça as principais ferramentas para comunicação, gestão de projetos e colaboração em equipes remotas.',
+            'ferramentas', V_ID_ADMIN)
+    RETURNING ID_POST INTO V_ID_POST2;
     
-    PKG_REMOTEREADY.PRC_INSERIR_POST(
-        'Ergonomia no home office',
-        'Aprenda a montar um ambiente de trabalho saudável em casa, evitando problemas de saúde.',
-        'saude',
-        V_ID_ADMIN,
-        V_ID_POST3
-    );
+    INSERT INTO TB_GS_BLOG_POST (ID_POST, DS_TITULO, DS_DESCRICAO, DS_TAG, ID_USUARIO_CRIADOR)
+    VALUES (SEQ_TB_GS_POST.NEXTVAL, 'Ergonomia no home office',
+            'Aprenda a montar um ambiente de trabalho saudável em casa, evitando problemas de saúde.',
+            'saude', V_ID_ADMIN)
+    RETURNING ID_POST INTO V_ID_POST3;
     
     -- Registrar leituras (João lê 3 posts)
     PKG_REMOTEREADY.PRC_REGISTRAR_LEITURA(V_ID_USER1, V_ID_POST1, 'LIDO');
@@ -1583,23 +1423,10 @@ PROMPT EXECUTANDO TESTES DA DISCIPLINA
 PROMPT ========================================;
 PROMPT
 
--- TESTE 1: CRUD com Package
-PROMPT === TESTE 1: CRUD com Package ===;
-DECLARE
-    V_ID NUMBER;
+-- TESTE 1: Sistema de Histórico do Usuário
+PROMPT === TESTE 1: Sistema de Histórico do Usuário ===;
 BEGIN
-    PKG_REMOTEREADY.PRC_INSERIR_USUARIO(
-        'Teste BD', 
-        'teste.bd@fiap.com.br', 
-        'senha789', 
-        'USER', 
-        V_ID
-    );
-    DBMS_OUTPUT.PUT_LINE('Usuário de teste criado: ID=' || V_ID);
-    
-    -- Testar histórico do usuário criado
-    PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(V_ID, 'COMPLETO');
-    DBMS_OUTPUT.PUT_LINE('Histórico do usuário exibido com sucesso!');
+    PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(1, 'COMPLETO');
 END;
 /
 
