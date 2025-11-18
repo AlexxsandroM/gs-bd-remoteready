@@ -351,7 +351,7 @@ CREATE OR REPLACE PACKAGE PKG_REMOTEREADY AS
     
     PROCEDURE PRC_HISTORICO_USUARIO(
         P_ID_USUARIO IN NUMBER,
-        P_TIPO_HISTORICO IN VARCHAR2 DEFAULT 'COMPLETO' -- COMPLETO, POSTS, CHAT, AUDITORIA
+        P_TIPO_HISTORICO IN VARCHAR2 DEFAULT 'CHAT' -- Apenas CHAT (histórico RemoteCoach)
     );
     
     PROCEDURE PRC_INSERIR_CHAT_HISTORY(
@@ -381,12 +381,6 @@ CREATE OR REPLACE PACKAGE PKG_REMOTEREADY AS
     -- ========================================================================
     PROCEDURE PRC_RELATORIO_ENGAJAMENTO(
         P_DIAS IN NUMBER DEFAULT 30
-    );
-    
-    PROCEDURE PRC_REGISTRAR_LEITURA(
-        P_ID_USUARIO IN NUMBER,
-        P_ID_POST    IN NUMBER,
-        P_STATUS     IN VARCHAR2 DEFAULT 'LIDO'
     );
     
     -- ========================================================================
@@ -431,13 +425,11 @@ CREATE OR REPLACE PACKAGE BODY PKG_REMOTEREADY AS
     -- ========================================================================
     PROCEDURE PRC_HISTORICO_USUARIO(
         P_ID_USUARIO IN NUMBER,
-        P_TIPO_HISTORICO IN VARCHAR2 DEFAULT 'COMPLETO'
+        P_TIPO_HISTORICO IN VARCHAR2 DEFAULT 'CHAT'
     ) AS
         V_COUNT NUMBER;
         V_NOME VARCHAR2(100);
         V_EMAIL VARCHAR2(150);
-        V_ROLE VARCHAR2(20);
-        V_DT_CRIACAO DATE;
     BEGIN
         -- Verificar se usuário existe
         SELECT COUNT(*) INTO V_COUNT FROM TB_GS_USUARIO WHERE ID_USUARIO = P_ID_USUARIO;
@@ -446,69 +438,46 @@ CREATE OR REPLACE PACKAGE BODY PKG_REMOTEREADY AS
         END IF;
         
         -- Buscar dados básicos do usuário
-        SELECT NM_USUARIO, DS_EMAIL, TP_ROLE, DT_CRIACAO 
-        INTO V_NOME, V_EMAIL, V_ROLE, V_DT_CRIACAO
+        SELECT NM_USUARIO, DS_EMAIL 
+        INTO V_NOME, V_EMAIL
         FROM TB_GS_USUARIO 
         WHERE ID_USUARIO = P_ID_USUARIO;
         
         DBMS_OUTPUT.PUT_LINE('========================================');
-        DBMS_OUTPUT.PUT_LINE('HISTÓRICO DO USUÁRIO ID: ' || P_ID_USUARIO);
+        DBMS_OUTPUT.PUT_LINE('HISTÓRICO REMOTECOACH - USUÁRIO ID: ' || P_ID_USUARIO);
         DBMS_OUTPUT.PUT_LINE('========================================');
         DBMS_OUTPUT.PUT_LINE('Nome: ' || V_NOME);
         DBMS_OUTPUT.PUT_LINE('Email: ' || V_EMAIL);
-        DBMS_OUTPUT.PUT_LINE('Role: ' || V_ROLE);
-        DBMS_OUTPUT.PUT_LINE('Data Criação: ' || TO_CHAR(V_DT_CRIACAO, 'DD/MM/YYYY HH24:MI:SS'));
+        DBMS_OUTPUT.PUT_LINE('========================================');
+        DBMS_OUTPUT.PUT_LINE('CONVERSAS COM REMOTECOACH:');
         DBMS_OUTPUT.PUT_LINE('========================================');
         
-        -- Histórico de Posts (se for ADMIN)
-        IF P_TIPO_HISTORICO IN ('COMPLETO', 'POSTS') THEN
-            DBMS_OUTPUT.PUT_LINE('POSTS CRIADOS:');
-            FOR post_rec IN (
-                SELECT ID_POST, DS_TITULO, DS_TAG, DT_CRIACAO
-                FROM TB_GS_BLOG_POST 
-                WHERE ID_USUARIO_CRIADOR = P_ID_USUARIO
-                ORDER BY DT_CRIACAO DESC
-            ) LOOP
-                DBMS_OUTPUT.PUT_LINE('• Post ' || post_rec.ID_POST || ': ' || post_rec.DS_TITULO || 
-                                   ' [' || post_rec.DS_TAG || '] - ' || 
-                                   TO_CHAR(post_rec.DT_CRIACAO, 'DD/MM/YYYY'));
-            END LOOP;
+        -- Histórico de Chat RemoteCoach
+        FOR chat_rec IN (
+            SELECT 
+                ID_CHAT, 
+                SUBSTR(DS_PROMPT, 1, 100) AS PROMPT_SHORT,
+                SUBSTR(DS_RESPONSE, 1, 100) AS RESPONSE_SHORT,
+                DT_CRIACAO
+            FROM TB_GS_CHAT_HISTORY 
+            WHERE ID_USUARIO = P_ID_USUARIO
+            ORDER BY DT_CRIACAO DESC
+        ) LOOP
+            DBMS_OUTPUT.PUT_LINE('');
+            DBMS_OUTPUT.PUT_LINE('Chat #' || chat_rec.ID_CHAT || ' - ' || 
+                               TO_CHAR(chat_rec.DT_CRIACAO, 'DD/MM/YYYY HH24:MI:SS'));
+            DBMS_OUTPUT.PUT_LINE('Pergunta: "' || chat_rec.PROMPT_SHORT || '..."');
+            
+            IF chat_rec.RESPONSE_SHORT IS NOT NULL THEN
+                DBMS_OUTPUT.PUT_LINE('Resposta: "' || chat_rec.RESPONSE_SHORT || '..."');
+            ELSE
+                DBMS_OUTPUT.PUT_LINE('Resposta: [Pendente]');
+            END IF;
             DBMS_OUTPUT.PUT_LINE('----------------------------------------');
-        END IF;
+        END LOOP;
         
-        -- Histórico de Chat
-        IF P_TIPO_HISTORICO IN ('COMPLETO', 'CHAT') THEN
-            DBMS_OUTPUT.PUT_LINE('HISTÓRICO DE CONVERSAS:');
-            FOR chat_rec IN (
-                SELECT ID_CHAT, SUBSTR(DS_PROMPT, 1, 50) AS PROMPT_SHORT, DT_CRIACAO
-                FROM TB_GS_CHAT_HISTORY 
-                WHERE ID_USUARIO = P_ID_USUARIO
-                ORDER BY DT_CRIACAO DESC
-                FETCH FIRST 10 ROWS ONLY
-            ) LOOP
-                DBMS_OUTPUT.PUT_LINE('• Chat ' || chat_rec.ID_CHAT || ': "' || 
-                                   chat_rec.PROMPT_SHORT || '..." - ' ||
-                                   TO_CHAR(chat_rec.DT_CRIACAO, 'DD/MM/YYYY HH24:MI'));
-            END LOOP;
-            DBMS_OUTPUT.PUT_LINE('----------------------------------------');
-        END IF;
-        
-        -- Histórico de Auditoria
-        IF P_TIPO_HISTORICO IN ('COMPLETO', 'AUDITORIA') THEN
-            DBMS_OUTPUT.PUT_LINE('ÚLTIMAS ATIVIDADES (AUDITORIA):');
-            FOR aud_rec IN (
-                SELECT NM_TABELA, TP_OPERACAO, DT_OPERACAO
-                FROM TB_GS_AUDITORIA 
-                WHERE ID_REGISTRO = P_ID_USUARIO
-                ORDER BY DT_OPERACAO DESC
-                FETCH FIRST 5 ROWS ONLY
-            ) LOOP
-                DBMS_OUTPUT.PUT_LINE('• ' || aud_rec.TP_OPERACAO || ' em ' || 
-                                   aud_rec.NM_TABELA || ' - ' ||
-                                   TO_CHAR(aud_rec.DT_OPERACAO, 'DD/MM/YYYY HH24:MI:SS'));
-            END LOOP;
-        END IF;
-        
+        DBMS_OUTPUT.PUT_LINE('========================================');
+        DBMS_OUTPUT.PUT_LINE('FIM DO HISTÓRICO REMOTECOACH');
         DBMS_OUTPUT.PUT_LINE('========================================');
         
     EXCEPTION
@@ -656,58 +625,67 @@ CREATE OR REPLACE PACKAGE BODY PKG_REMOTEREADY AS
         P_DIAS IN NUMBER DEFAULT 30
     ) AS
         V_DT_INICIO DATE := SYSDATE - P_DIAS;
-        V_TOTAL_USUARIOS NUMBER;
-        V_TOTAL_POSTS NUMBER;
-        V_TOTAL_LEITURAS NUMBER;
-        V_TOTAL_CERTIFICADOS NUMBER;
     BEGIN
         DBMS_OUTPUT.PUT_LINE('========================================');
-        DBMS_OUTPUT.PUT_LINE('RELATÓRIO DE ENGAJAMENTO - Últimos ' || P_DIAS || ' dias');
+        DBMS_OUTPUT.PUT_LINE('RELATÓRIO DE ELEGIBILIDADE PARA CERTIFICAÇÃO');
         DBMS_OUTPUT.PUT_LINE('Período: ' || TO_CHAR(V_DT_INICIO, 'DD/MM/YYYY') || ' até ' || TO_CHAR(SYSDATE, 'DD/MM/YYYY'));
         DBMS_OUTPUT.PUT_LINE('========================================');
-        
-        -- Total de usuários ativos
-        SELECT COUNT(*) INTO V_TOTAL_USUARIOS
-        FROM TB_GS_USUARIO
-        WHERE DT_CRIACAO >= V_DT_INICIO AND FL_ATIVO = 'Y';
-        
-        DBMS_OUTPUT.PUT_LINE('Novos usuários: ' || V_TOTAL_USUARIOS);
-        
-        -- Total de posts criados
-        SELECT COUNT(*) INTO V_TOTAL_POSTS
-        FROM TB_GS_BLOG_POST
-        WHERE DT_CRIACAO >= V_DT_INICIO;
-        
-        DBMS_OUTPUT.PUT_LINE('Novos posts: ' || V_TOTAL_POSTS);
-        
-        -- Total de leituras
-        SELECT COUNT(*) INTO V_TOTAL_LEITURAS
-        FROM TB_GS_USER_POST
-        WHERE DT_LEITURA >= V_DT_INICIO
-        AND DS_STATUS = 'LIDO';
-        
-        DBMS_OUTPUT.PUT_LINE('Total de leituras: ' || V_TOTAL_LEITURAS);
-        
-        -- Total de certificados emitidos
-        SELECT COUNT(*) INTO V_TOTAL_CERTIFICADOS
-        FROM TB_GS_CERTIFICADO
-        WHERE DT_EMISSAO >= V_DT_INICIO;
-        
-        DBMS_OUTPUT.PUT_LINE('Certificados emitidos: ' || V_TOTAL_CERTIFICADOS);
-        
-        -- Top 5 posts mais lidos
         DBMS_OUTPUT.PUT_LINE('');
-        DBMS_OUTPUT.PUT_LINE('TOP 5 POSTS MAIS LIDOS:');
+        DBMS_OUTPUT.PUT_LINE('USUÁRIOS APTOS A RECEBER CERTIFICADO (10+ posts lidos):');
         DBMS_OUTPUT.PUT_LINE('----------------------------------------');
         
         FOR R IN (
-            SELECT P.DS_TITULO, P.QT_VISUALIZACOES, P.DS_TAG
-            FROM TB_GS_BLOG_POST P
-            WHERE P.DT_CRIACAO >= V_DT_INICIO
-            ORDER BY P.QT_VISUALIZACOES DESC
-            FETCH FIRST 5 ROWS ONLY
+            SELECT 
+                U.ID_USUARIO,
+                U.NM_USUARIO,
+                U.DS_EMAIL,
+                COUNT(UP.ID_POST) AS QT_LIDOS,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM TB_GS_CERTIFICADO C 
+                        WHERE C.ID_USUARIO = U.ID_USUARIO
+                    ) THEN 'JÁ POSSUI'
+                    ELSE 'PODE EMITIR'
+                END AS STATUS_CERT
+            FROM TB_GS_USUARIO U
+            LEFT JOIN TB_GS_USER_POST UP 
+                ON U.ID_USUARIO = UP.ID_USUARIO 
+                AND UP.DS_STATUS = 'LIDO'
+            GROUP BY U.ID_USUARIO, U.NM_USUARIO, U.DS_EMAIL
+            HAVING COUNT(UP.ID_POST) >= 10
+            ORDER BY COUNT(UP.ID_POST) DESC
         ) LOOP
-            DBMS_OUTPUT.PUT_LINE('- ' || R.DS_TITULO || ' (' || R.QT_VISUALIZACOES || ' views) [' || R.DS_TAG || ']');
+            DBMS_OUTPUT.PUT_LINE('');
+            DBMS_OUTPUT.PUT_LINE('• Usuário: ' || R.NM_USUARIO || ' (ID: ' || R.ID_USUARIO || ')');
+            DBMS_OUTPUT.PUT_LINE('  Email: ' || R.DS_EMAIL);
+            DBMS_OUTPUT.PUT_LINE('  Posts Lidos: ' || R.QT_LIDOS);
+            DBMS_OUTPUT.PUT_LINE('  Status: ' || R.STATUS_CERT);
+            
+            IF R.STATUS_CERT = 'PODE EMITIR' THEN
+                DBMS_OUTPUT.PUT_LINE('  ✓ APTO PARA CERTIFICAÇÃO!');
+            END IF;
+        END LOOP;
+        
+        DBMS_OUTPUT.PUT_LINE('');
+        DBMS_OUTPUT.PUT_LINE('========================================');
+        DBMS_OUTPUT.PUT_LINE('USUÁRIOS AINDA NÃO APTOS (menos de 10 posts):');
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+        
+        FOR R IN (
+            SELECT 
+                U.ID_USUARIO,
+                U.NM_USUARIO,
+                COUNT(UP.ID_POST) AS QT_LIDOS,
+                (10 - COUNT(UP.ID_POST)) AS FALTAM
+            FROM TB_GS_USUARIO U
+            LEFT JOIN TB_GS_USER_POST UP 
+                ON U.ID_USUARIO = UP.ID_USUARIO 
+                AND UP.DS_STATUS = 'LIDO'
+            GROUP BY U.ID_USUARIO, U.NM_USUARIO
+            HAVING COUNT(UP.ID_POST) < 10
+            ORDER BY COUNT(UP.ID_POST) DESC
+        ) LOOP
+            DBMS_OUTPUT.PUT_LINE('• ' || R.NM_USUARIO || ': ' || R.QT_LIDOS || ' lidos (faltam ' || R.FALTAM || ')');
         END LOOP;
         
         DBMS_OUTPUT.PUT_LINE('========================================');
@@ -716,77 +694,6 @@ CREATE OR REPLACE PACKAGE BODY PKG_REMOTEREADY AS
         WHEN OTHERS THEN
             DBMS_OUTPUT.PUT_LINE('Erro ao gerar relatório: ' || SQLERRM);
     END PRC_RELATORIO_ENGAJAMENTO;
-    
-    -- ========================================================================
-    -- PROCEDURE 2.2: REGISTRAR LEITURA (com auto-certificação)
-    -- ========================================================================
-    PROCEDURE PRC_REGISTRAR_LEITURA(
-        P_ID_USUARIO IN NUMBER,
-        P_ID_POST    IN NUMBER,
-        P_STATUS     IN VARCHAR2 DEFAULT 'LIDO'
-    ) AS
-        V_QT_LEITURAS NUMBER;
-        V_JA_POSSUI_CERT NUMBER;
-        V_ID_USER_POST NUMBER;
-    BEGIN
-        -- Inserir leitura (idempotente devido ao UNIQUE)
-        BEGIN
-            INSERT INTO TB_GS_USER_POST (
-                ID_USUARIO, ID_POST, DS_STATUS, DT_LEITURA
-            ) VALUES (
-                P_ID_USUARIO, P_ID_POST, P_STATUS, SYSDATE
-            ) RETURNING ID_USER_POST INTO V_ID_USER_POST;
-            
-            -- Incrementar visualizações do post
-            UPDATE TB_GS_BLOG_POST
-            SET QT_VISUALIZACOES = QT_VISUALIZACOES + 1
-            WHERE ID_POST = P_ID_POST;
-            
-            DBMS_OUTPUT.PUT_LINE('Leitura registrada: ID=' || V_ID_USER_POST);
-            
-        EXCEPTION
-            WHEN DUP_VAL_ON_INDEX THEN
-                DBMS_OUTPUT.PUT_LINE('Usuário já leu este post anteriormente');
-                RETURN; -- Já leu, não precisa reprocessar
-        END;
-        
-        -- Contar total de posts LIDOS pelo usuário
-        SELECT COUNT(*) INTO V_QT_LEITURAS
-        FROM TB_GS_USER_POST
-        WHERE ID_USUARIO = P_ID_USUARIO
-        AND DS_STATUS = 'LIDO';
-        
-        DBMS_OUTPUT.PUT_LINE('Total de posts lidos pelo usuário: ' || V_QT_LEITURAS);
-        
-        -- Verificar se atingiu 10 leituras e não possui certificado
-        IF V_QT_LEITURAS >= 10 THEN
-            SELECT COUNT(*) INTO V_JA_POSSUI_CERT
-            FROM TB_GS_CERTIFICADO
-            WHERE ID_USUARIO = P_ID_USUARIO
-            AND DS_TITULO = 'Leitor Ativo - 10+ Posts';
-            
-            IF V_JA_POSSUI_CERT = 0 THEN
-                -- Conceder certificado automaticamente
-                INSERT INTO TB_GS_CERTIFICADO (
-                    ID_CERTIFICADO, ID_USUARIO, DS_TITULO, DS_DESCRICAO
-                ) VALUES (
-                    SEQ_TB_GS_CERTIFICADO.NEXTVAL,
-                    P_ID_USUARIO,
-                    'Leitor Ativo - 10+ Posts',
-                    'Parabéns! Você leu 10 ou mais posts sobre trabalho remoto.'
-                );
-                
-                DBMS_OUTPUT.PUT_LINE('*** CERTIFICADO CONCEDIDO: Leitor Ativo - 10+ Posts ***');
-            END IF;
-        END IF;
-        
-        COMMIT;
-        
-    EXCEPTION
-        WHEN OTHERS THEN
-            ROLLBACK;
-            RAISE_APPLICATION_ERROR(-20013, 'Erro ao registrar leitura: ' || SQLERRM);
-    END PRC_REGISTRAR_LEITURA;
     
     -- ========================================================================
     -- FUNÇÃO 1: TRANSFORMAÇÃO JSON DO PERFIL (Requisito: 15 pontos)
@@ -1393,13 +1300,24 @@ BEGIN
             'saude', V_ID_ADMIN)
     RETURNING ID_POST INTO V_ID_POST3;
     
-    -- Registrar leituras (João lê 3 posts)
-    PKG_REMOTEREADY.PRC_REGISTRAR_LEITURA(V_ID_USER1, V_ID_POST1, 'LIDO');
-    PKG_REMOTEREADY.PRC_REGISTRAR_LEITURA(V_ID_USER1, V_ID_POST2, 'LIDO');
-    PKG_REMOTEREADY.PRC_REGISTRAR_LEITURA(V_ID_USER1, V_ID_POST3, 'LIDO');
+    -- Registrar leituras manualmente (João lê 3 posts)
+    INSERT INTO TB_GS_USER_POST (ID_USUARIO, ID_POST, DS_STATUS, DT_LEITURA)
+    VALUES (V_ID_USER1, V_ID_POST1, 'LIDO', SYSDATE);
     
-    -- Registrar leituras (Maria lê 1 post)
-    PKG_REMOTEREADY.PRC_REGISTRAR_LEITURA(V_ID_USER2, V_ID_POST1, 'LIDO');
+    INSERT INTO TB_GS_USER_POST (ID_USUARIO, ID_POST, DS_STATUS, DT_LEITURA)
+    VALUES (V_ID_USER1, V_ID_POST2, 'LIDO', SYSDATE);
+    
+    INSERT INTO TB_GS_USER_POST (ID_USUARIO, ID_POST, DS_STATUS, DT_LEITURA)
+    VALUES (V_ID_USER1, V_ID_POST3, 'LIDO', SYSDATE);
+    
+    -- Registrar leitura (Maria lê 1 post)
+    INSERT INTO TB_GS_USER_POST (ID_USUARIO, ID_POST, DS_STATUS, DT_LEITURA)
+    VALUES (V_ID_USER2, V_ID_POST1, 'LIDO', SYSDATE);
+    
+    -- Atualizar visualizações dos posts
+    UPDATE TB_GS_BLOG_POST SET QT_VISUALIZACOES = 3 WHERE ID_POST = V_ID_POST1;
+    UPDATE TB_GS_BLOG_POST SET QT_VISUALIZACOES = 1 WHERE ID_POST = V_ID_POST2;
+    UPDATE TB_GS_BLOG_POST SET QT_VISUALIZACOES = 1 WHERE ID_POST = V_ID_POST3;
     
     COMMIT;
     
@@ -1407,7 +1325,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('- 1 Admin, 2 Users');
     DBMS_OUTPUT.PUT_LINE('- 2 Empresas');
     DBMS_OUTPUT.PUT_LINE('- 3 Posts');
-    DBMS_OUTPUT.PUT_LINE('- 4 Leituras registradas');
+    DBMS_OUTPUT.PUT_LINE('- 4 Leituras registradas (via INSERT direto)');
     
 END;
 /
@@ -1423,10 +1341,10 @@ PROMPT EXECUTANDO TESTES DA DISCIPLINA
 PROMPT ========================================;
 PROMPT
 
--- TESTE 1: Sistema de Histórico do Usuário
-PROMPT === TESTE 1: Sistema de Histórico do Usuário ===;
+-- TESTE 1: Histórico RemoteCoach (apenas conversas)
+PROMPT === TESTE 1: Histórico RemoteCoach (Chat) ===;
 BEGIN
-    PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(1, 'COMPLETO');
+    PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(1, 'CHAT');
 END;
 /
 
@@ -1476,10 +1394,16 @@ PROMPT === TESTE 7: Sistema de Histórico Especializado ===;
 DECLARE
     V_ID_CHAT NUMBER;
     V_ID_CHAT2 NUMBER;
+    V_ID_USUARIO NUMBER;
 BEGIN
+    -- Buscar ID do usuário João Silva
+    SELECT ID_USUARIO INTO V_ID_USUARIO
+    FROM TB_GS_USUARIO
+    WHERE DS_EMAIL = 'joao.silva@email.com';
+    
     -- Teste 1: Inserir conversa inicial (sem resposta)
     PKG_REMOTEREADY.PRC_INSERIR_CHAT_HISTORY(
-        P_ID_USUARIO => 1,
+        P_ID_USUARIO => V_ID_USUARIO,
         P_PROMPT => 'Como posso melhorar meu perfil para trabalho remoto?',
         P_RESPONSE => NULL, -- Resposta pendente
         P_ID_OUT => V_ID_CHAT
@@ -1494,41 +1418,99 @@ BEGIN
     
     -- Teste 3: Inserir conversa completa
     PKG_REMOTEREADY.PRC_INSERIR_CHAT_HISTORY(
-        P_ID_USUARIO => 1,
+        P_ID_USUARIO => V_ID_USUARIO,
         P_PROMPT => 'Quais certificados são mais valorizados?',
         P_RESPONSE => 'Certificados mais valorizados: Scrum Master, AWS Cloud, Google Analytics, Microsoft Teams...',
         P_ID_OUT => V_ID_CHAT2
     );
     
     -- Teste 4: Buscar histórico recente
-    PKG_REMOTEREADY.PRC_BUSCAR_HISTORICO_CHAT(1, 5);
+    PKG_REMOTEREADY.PRC_BUSCAR_HISTORICO_CHAT(V_ID_USUARIO, 5);
     
     DBMS_OUTPUT.PUT_LINE('Sistema de histórico testado com sucesso!');
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: Usuário joao.silva@email.com não encontrado. Execute primeiro a seção de dados de teste.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: ' || SQLERRM);
 END;
 /
 
 -- TESTE 8: Histórico Completo do Usuário
 PROMPT
 PROMPT === TESTE 8: Histórico Completo do Usuário ===;
-EXEC PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(1, 'COMPLETO');
+DECLARE
+    V_ID_USUARIO NUMBER;
+BEGIN
+    SELECT ID_USUARIO INTO V_ID_USUARIO
+    FROM TB_GS_USUARIO
+    WHERE DS_EMAIL = 'joao.silva@email.com';
+    
+    PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(V_ID_USUARIO, 'CHAT');
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: Usuário joao.silva@email.com não encontrado.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: ' || SQLERRM);
+END;
+/
 
--- TESTE 9: Histórico Específico de Posts (ADMIN)
+-- TESTE 9: Histórico do Admin
 PROMPT
-PROMPT === TESTE 9: Histórico de Posts do Admin ===;
-EXEC PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(2, 'POSTS');
+PROMPT === TESTE 9: Histórico do Admin ===;
+DECLARE
+    V_ID_ADMIN NUMBER;
+BEGIN
+    SELECT ID_USUARIO INTO V_ID_ADMIN
+    FROM TB_GS_USUARIO
+    WHERE DS_EMAIL = 'admin@remoteready.com';
+    
+    PKG_REMOTEREADY.PRC_HISTORICO_USUARIO(V_ID_ADMIN, 'CHAT');
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: Admin admin@remoteready.com não encontrado.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: ' || SQLERRM);
+END;
+/
 
 -- TESTE 10: Busca Específica de Chat
 PROMPT
 PROMPT === TESTE 10: Busca Específica de Chat ===;
-EXEC PKG_REMOTEREADY.PRC_BUSCAR_HISTORICO_CHAT(1, 3);
+DECLARE
+    V_ID_USUARIO NUMBER;
+BEGIN
+    SELECT ID_USUARIO INTO V_ID_USUARIO
+    FROM TB_GS_USUARIO
+    WHERE DS_EMAIL = 'joao.silva@email.com';
+    
+    PKG_REMOTEREADY.PRC_BUSCAR_HISTORICO_CHAT(V_ID_USUARIO, 3);
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: Usuário joao.silva@email.com não encontrado.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: ' || SQLERRM);
+END;
+/
 
 -- TESTE 11: Manutenção de Histórico
 PROMPT
 PROMPT === TESTE 11: Manutenção de Histórico ===;
+DECLARE
+    V_ID_USUARIO NUMBER;
 BEGIN
+    SELECT ID_USUARIO INTO V_ID_USUARIO
+    FROM TB_GS_USUARIO
+    WHERE DS_EMAIL = 'joao.silva@email.com';
+    
     -- Demonstrar limpeza de histórico muito antigo (>2 anos)
-    PKG_REMOTEREADY.PRC_LIMPAR_HISTORICO_ANTIGO(1, 730);
+    PKG_REMOTEREADY.PRC_LIMPAR_HISTORICO_ANTIGO(V_ID_USUARIO, 730);
     DBMS_OUTPUT.PUT_LINE('Teste de manutenção concluído - histórico preservado por ser recente');
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: Usuário joao.silva@email.com não encontrado.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('ERRO: ' || SQLERRM);
 END;
 /
 

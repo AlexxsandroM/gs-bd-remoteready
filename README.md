@@ -47,30 +47,35 @@ Este banco de dados Oracle alimenta o ecossistema completo RemoteReady:
 - `TB_GS_EXPORT_LOG` - Controle de exportações
 
 ### 2. Procedure 1 - Histórico do Usuário (15 pontos) 
-**`PRC_HISTORICO_USUARIO`** - Procedure principal completa com 3 modos:
-- **COMPLETO**: Posts lidos + Certificados + Chat RemoteCoach + Auditoria
-- **RESUMO**: Apenas estatísticas agregadas
-- **CHAT**: Histórico isolado de conversas com RemoteCoach
+**`PRC_HISTORICO_USUARIO`** - Histórico completo de conversas com RemoteCoach:
+- Exibe todas as conversas do usuário com o chatbot
+- Mostra perguntas (prompts) e respostas
+- Indica status: resposta completa ou pendente
+- Formato detalhado com ID, data/hora e conteúdo
+- **Uso**: Backend Java busca histórico para exibir no app React Native
 
 **Procedures auxiliares de histórico:**
-- `PRC_INSERIR_CHAT_HISTORY` - Registra conversas do RemoteCoach
-- `PRC_ATUALIZAR_CHAT_RESPONSE` - Atualiza resposta do chatbot
-- `PRC_BUSCAR_HISTORICO_CHAT` - Recupera conversas específicas
-- `PRC_LIMPAR_HISTORICO_ANTIGO` - Manutenção de dados antigos
+- `PRC_INSERIR_CHAT_HISTORY` - Registra nova conversa do RemoteCoach
+- `PRC_ATUALIZAR_CHAT_RESPONSE` - Atualiza resposta do chatbot (async)
+- `PRC_BUSCAR_HISTORICO_CHAT` - Recupera conversas com limite configurável
+- `PRC_LIMPAR_HISTORICO_ANTIGO` - Manutenção/limpeza de dados antigos (LGPD)
 
 ### 3. Procedure 2 - Relatórios e Análises (15 pontos) 
-**`PRC_RELATORIO_ENGAJAMENTO`** - Análise completa do sistema:
-- Total de usuários ativos
-- Posts criados no blog
-- Leituras registradas (TB_GS_USER_POST)
-- Certificados emitidos
-- Top 5 posts mais lidos
+**`PRC_RELATORIO_ENGAJAMENTO`** - Relatório de Elegibilidade para Certificação:
 
-**`PRC_REGISTRAR_LEITURA`** - Lógica de negócio inteligente:
-- Registro idempotente (não duplica leituras)
-- Auto-certificação automática aos 10+ posts lidos com status 'LIDO'
-- Incremento de visualizações no post
-- Validação de status
+**Seção 1: Usuários APTOS (≥10 posts lidos)**
+- Lista usuários que atingiram o critério de certificação
+- Mostra quantidade de posts lidos
+- Indica se já possui certificado ou pode emitir
+- Status claro: "JÁ POSSUI" ou "PODE EMITIR"
+
+**Seção 2: Usuários NÃO APTOS (<10 posts)**
+- Lista usuários em progresso
+- Mostra quantos posts já leram
+- Calcula quantos posts faltam para certificação
+- Ordenado por engajamento (maior → menor)
+
+**Uso Backend:** O relatório fornece dados para o app React Native exibir progresso de certificação aos usuários em tempo real
 
 ### 4. Função 1 - Transformação de Dados (15 pontos) 
 **`FN_USER_PROFILE_JSON`** - Gera JSON completo do perfil do usuário:
@@ -94,10 +99,14 @@ Este banco de dados Oracle alimenta o ecossistema completo RemoteReady:
 
 ### 6. Package PL/SQL (15 pontos) 
 **`PKG_REMOTEREADY`** - Encapsulamento completo:
-- **Specification**: Interface pública com 9 procedures e 3 functions
+- **Specification**: Interface pública com 8 procedures e 3 functions
 - **Body**: Implementação detalhada com tratamento de erros
 - **Organização**: Todas procedures e funções agrupadas logicamente
-- **Procedures**: Histórico (5) + Relatórios (2) + Negócio (2)
+- **Procedures**: 
+  - Histórico RemoteCoach (5 procedures)
+  - Relatórios de Certificação (1 procedure)
+  - Emissão Manual de Certificados (1 procedure)
+  - Relatório Top Usuários (1 procedure)
 - **Functions**: Transformação JSON (1) + Validações (2)
 
 ### 7. Trigger de Auditoria (10 pontos) 
