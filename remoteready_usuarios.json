@@ -1,0 +1,10 @@
+[
+{"id_usuario":1,"nm_usuario":"Admin RemoteReady","ds_email":"admin@remoteready.com","tp_perfil":"JUNIOR","tp_role":"ADMIN","nr_experiencia":0,"vl_avaliacao":null,"fl_ativo":"Y","dt_criacao":"2025-11-17T23:12:32"}
+,
+{"id_usuario":2,"nm_usuario":"João Silva","ds_email":"joao.silva@email.com","tp_perfil":"JUNIOR","tp_role":"USER","nr_experiencia":0,"vl_avaliacao":null,"fl_ativo":"Y","dt_criacao":"2025-11-17T23:12:32"}
+,
+{"id_usuario":3,"nm_usuario":"Maria Santos","ds_email":"maria.santos@email.com","tp_perfil":"JUNIOR","tp_role":"USER","nr_experiencia":0,"vl_avaliacao":null,"fl_ativo":"Y","dt_criacao":"2025-11-17T23:12:32"}
+,
+{"id_usuario":4,"nm_usuario":"Teste BD","ds_email":"teste.bd@fiap.com.br","tp_perfil":"JUNIOR","tp_role":"USER","nr_experiencia":0,"vl_avaliacao":null,"fl_ativo":"Y","dt_criacao":"2025-11-17T23:12:32"}
+]
+
